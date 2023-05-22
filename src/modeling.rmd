@@ -1,0 +1,398 @@
+
+
+```{r setup_modeling}
+library(magrittr)
+library(tidymodels)
+library(embed)
+library(finetune)
+
+
+```
+
+
+# Traitement du data
+```{r raw_data_import}
+
+property_price_table <- readr::read_rds("../data/property_price_table.rds")
+
+property_info_table <- readr::read_rds("../data/property_info_table.rds")
+
+property_description_embeddings <- readr::read_rds("../data/property_description_embeddings.rds")
+
+```
+
+
+```{r}
+info <- property_info_table %>% 
+  tidyr::unnest(addl_attributes) %>% 
+  dplyr::filter(property_type == "houses" & sale_or_rent == "for-sale")
+
+
+embeddings_wide <- property_description_embeddings %>% 
+  tidyr::unnest(embedding) %>% 
+  dplyr::group_by(id) %>% 
+  dplyr::mutate(i = stringr::str_pad(dplyr::row_number(), 4, "left", "0")) %>% 
+  tidyr::pivot_wider(id_cols = "id", values_from = "embedding", names_from = i, names_prefix = "embedding_")
+
+
+locations_granby_region <- c("abbotsford", "granby", "bromont", "shefford", "roxton", "cesaire")
+locations_chambly_region <- c("chambly", "richelieu", "marieville", "rougemont", "saint-bruno-de-montarville", "carignan")
+locations_longueuil <- c("longueuil", "brossard", "la-prairie", "boucherville")
+locations_quebec_region <- c("quebec", "levis", "saint-augustin-de-desmaures", "lac-beauport")
+
+
+data <- property_price_table %>%
+  dplyr::filter(!is.na(price)) %>% 
+  dplyr::arrange(id, dplyr::desc(query_date)) %>%
+  dplyr::group_by(id) %>%
+  dplyr::slice(1) %>%
+  dplyr::ungroup() %>%
+  dplyr::inner_join(info, by = "id") %>% 
+  dplyr::inner_join(embeddings_wide, by = "id") %>% 
+  dplyr::mutate(region = dplyr::case_when(
+    grepl(paste(locations_granby_region, collapse = "|"), location) ~ "Granby",
+    grepl(paste(locations_chambly_region, collapse = "|"), location) ~ "Chambly",
+    grepl(paste(locations_longueuil, collapse = "|"), location) ~ "Longueuil",
+    TRUE ~ "Québec")) %>% 
+  dplyr::filter(location != "venise-en-quebec")
+
+
+saveRDS(data, "../data/model_data.rds")
+saveRDS(data %>% head(), "../data/model_data_mini.rds")
+```
+
+
+Comme j'ai accès à 8 coeurs pour le fit, ça fait du sens d'avoir un multiple de 8 pour les folds.
+
+```{r}
+set.seed(123)
+split <- initial_split(data, prop = 0.8, strata = region)
+train <- training(split)
+test <- testing(split)
+
+folds <- vfold_cv(train, v = 8)
+
+```
+
+
+
+# Recettes
+
+
+
+Je débute par une recette simple qui va être la base pour mes autres recettes. Je crée aussi une recette de finalisation qui va s'appliquer à la fin de toute mes autres recettes.
+```{r}
+rec_base <- recipe(price ~ ., data = train) %>% 
+  update_role(c(id, query_date, location, description, sale_or_rent, property_type, 
+                lang, address, additional_features, zoning, occupancy, intergenerational, 
+                starts_with("embedding_")), 
+              new_role = "autre") %>% 
+  # Enlève si le nombre de room est manquant
+  step_filter(!(is.na(n_rooms) | is.na(n_bathrooms)))
+
+
+
+finalisation_rec <- function(rec){
+  rec %>% 
+  # Finalisation
+  step_string2factor(all_nominal_predictors()) %>% 
+  # Gérer les missings
+  step_unknown(all_nominal_predictors()) %>% 
+  step_impute_median(all_numeric_predictors()) %>% 
+  
+  step_other(all_nominal_predictors()) %>% 
+  step_dummy(all_nominal_predictors(), one_hot = T) %>% 
+  step_nzv(all_predictors())
+}
+
+```
+
+
+## Sans embedding/description
+
+
+Premier jet d'une recette complète, traitement minimal des prédicteurs
+```{r}
+rec_simple <- rec_base %>% 
+  step_factor2string(c(lot_area, year_built)) %>% 
+  step_mutate(
+    lot_area = readr::parse_number(lot_area),
+    year_built = readr::parse_number(ifelse(grepl("To be built|Under construction", year_built, ignore.case = T), "2023", year_built)),
+    has_garage = grepl("garage", parking_total, ignore.case = T),
+    has_pool = !is.na(pool)
+  ) %>% 
+  step_bin2factor(c(has_garage, has_pool)) %>% 
+  update_role(
+    c(parking_total, pool, fireplace_stove),
+    new_role = "autre"
+  )
+```
+
+
+
+Ici j'essaie d'extraire le plus d'information possible des prédicteurs, à l'exception des embeddings que j'exclue toujours.
+
+```{r}
+rec_complete <-  rec_base %>% 
+  # Extraire l'information du building style
+  step_factor2string(building_style) %>% 
+  step_mutate(house_style = stringr::str_extract(building_style, "^[^,]*"),
+              house_type = stringr::str_extract(building_style, "(?<=,).*")) %>% 
+  update_role(building_style, new_role= "autre") %>% 
+  # Parse l'année de construction
+  step_factor2string(year_built) %>% 
+  step_mutate(year_built = readr::parse_number(ifelse(grepl("To be built|Under construction", year_built, ignore.case = T), "2023", year_built))) %>% 
+  # Parse la taille du terrain
+  step_factor2string(lot_area) %>% 
+  step_mutate(lot_area = readr::parse_number(lot_area)) %>% 
+  # Extraction de l'info relative au parking
+  step_factor2string(parking_total) %>% 
+  step_mutate(
+    size_driveway = stringr::str_match(parking_total, "Driveway \\((\\d+)\\)")[,2],
+    size_driveway = as.integer(size_driveway),
+    size_driveway = ifelse(is.na(size_driveway), 0, size_driveway),
+    
+    size_garage = stringr::str_match(parking_total, "Garage \\((\\d+)\\)")[,2],
+    size_garage = as.integer(size_garage),
+    size_garage = ifelse(is.na(size_garage), 0, size_garage),    
+    
+    size_carport = stringr::str_match(parking_total, "Carport \\((\\d+)\\)")[,2],
+    size_carport = as.integer(size_carport),
+    size_carport = ifelse(is.na(size_carport), 0, size_carport),
+  ) %>% 
+  update_role(parking_total, new_role = "autre") %>% 
+  # Extraction info foyer
+  step_factor2string(fireplace_stove) %>% 
+  step_mutate(
+    has_fireplace = grepl("fireplace", fireplace_stove, ignore.case = TRUE),
+    has_stove = grepl("stove", fireplace_stove, ignore.case = TRUE)
+  )  %>% 
+  update_role(fireplace_stove, new_role = "autre") %>% 
+  step_bin2factor(c(has_fireplace, has_stove)) %>% 
+  # Extraction info piscine
+  step_factor2string(pool) %>% 
+  step_mutate(
+    pool = dplyr::case_when(
+      grepl("indoor", pool, ignore.case = TRUE) ~ "Indoor",
+      grepl("inground", pool, ignore.case = TRUE) ~ "Inground",
+      grepl("above", pool, ignore.case = TRUE) ~ "Above-ground",
+      !is.na(pool) ~ "Other",
+      TRUE ~ "None"
+    )
+  )
+```
+
+
+
+## Avec embeddings/description
+
+Je vais tester une recette en gardant uniquement les embeddings, pour voir à quel point je suis en mesure de prédire le prix avec la description uniquement.
+
+
+Je réduis la dimensionnalité parce qu'à 1500 prédicteurs pour seulement 7000 obs, ça risque d'overfit.
+
+Je vais laisser le modèle tuner le nombre optimal de components.
+
+```{r}
+rec_embed_only_pca <- rec_base %>% 
+  update_role(all_predictors(), new_role = "autre") %>% 
+  update_role(starts_with("embedding_"), new_role = "predictor") %>% 
+  step_pca(starts_with("embedding_"), num_comp = tune())
+
+```
+
+
+
+
+
+```{r}
+rec_simple_embed_pca <- rec_simple %>% 
+  update_role(starts_with("embedding_"), new_role = "predictor") %>% 
+  step_pca(starts_with("embedding_"), num_comp = tune()) 
+```
+
+
+
+
+```{r}
+rec_complete_embed_pca <- rec_complete %>% 
+  update_role(starts_with("embedding_"), new_role = "predictor") %>% 
+  step_pca(starts_with("embedding_"), num_comp = tune()) 
+```
+
+
+## Finalisation
+
+```{r}
+recettes <- list(
+  "simple" = rec_simple,
+  "complete" = rec_complete,
+  "embed_only_pca" = rec_embed_only_pca,
+  "simple_embed" = rec_simple_embed_pca,
+  "complete_embed" = rec_complete_embed_pca
+)
+
+
+recettes <- lapply(recettes, function(x) x %>% finalisation_rec())
+```
+
+
+
+# Modèles
+
+Je vais y aller pour un modèle xgboost. Je tune les paramètres suivants:
+
+* trees
+* mtry
+* min_n
+
+```{r}
+xgb_spec <- boost_tree(
+  trees = tune(),
+  mtry = tune(),
+  min_n = tune(),
+  stop_iter = 100,
+  learn_rate = 0.01
+) %>% 
+  set_engine("xgboost") %>% 
+  set_mode("regression")
+
+modeles <- list(
+  "xgb" = xgb_spec
+)
+
+```
+
+Je crée un dataset de workflows avec chaque combinaison de recette et modèle.
+
+```{r}
+workflows <- crossing(recette = recettes, modele = modeles) %>% 
+  mutate(
+    nom_recette = names(recette),
+    nom_modele = names(modele)
+  ) %>% 
+  select(nom_recette, nom_modele, recette, modele) %>% 
+  mutate(
+    workflow = map2(recette, modele, workflow),
+    # params = map(workflow, ~extract_parameter_set_dials(.x) %>% update(mtry = mtry(c(1, 20))))
+  )
+  
+
+```
+
+
+# Tuning des paramètres
+
+
+
+```{r}
+
+grid_base <- parameters(
+  trees(c(250, 1500)),
+  mtry(c(2, 15)),
+  min_n()
+) %>% 
+  grid_max_entropy(size = 15)
+
+grid_components <- parameters(
+  num_comp(c(3, 10)),
+  trees(c(250, 1500)),
+  mtry(c(2, 15)),
+  min_n()
+) %>% 
+  grid_max_entropy(size = 20)
+
+set_grid <- function(workflow){
+  if("num_comp" %in% (workflow %>% extract_parameter_set_dials() %>% magrittr::extract2("name"))){
+    grid_components
+  } else {
+    grid_base
+  }
+}
+
+
+
+workflows <- workflows %>% 
+  mutate(
+    grid = map(workflow, set_grid)
+  )
+
+
+tune_models <- function(model, preprocessor, grid, rec_name, mod_name){
+  res <- tune_grid(
+    model,
+    preprocessor,
+    folds,
+    grid = grid,
+    metrics = metric_set(rmse),
+    control = control_race(parallel_over = "resamples")
+  )
+  
+  saveRDS(res, paste0("../data/", rec_name, "-", mod_name, ".rds"))
+  
+  res
+}
+
+
+cluster <- parallel::makePSOCKcluster(6)#parallel::detectCores())
+
+doParallel::registerDoParallel(cluster)
+
+set.seed(234)
+
+tuning_results <- workflows %>% 
+  mutate(
+    tune_res = pmap(list(modele, recette, grid, nom_recette, nom_modele), tune_models)
+  )
+
+
+```
+
+
+
+
+
+# Last fit
+
+```{r}
+last_fit <- tuning_results %>% 
+  mutate(
+    workflow_tuned = map2(workflow, tune_res, ~finalize_workflow(.x, select_best(.y, "rmse"))),
+    last_fit = map(workflow_tuned, ~last_fit(.x, !!split)),
+    fit = map(workflow_tuned, ~fit(.x, training(!!split)))
+  )
+```
+
+
+
+
+```{r}
+saveRDS(last_fit, "../data/all_fits.rds")
+
+
+mapply(function(mod, name) {readr::write_rds(butcher::butcher(mod), paste0("../data/butchered_fit_", name, ".rds"))},
+       mod = last_fit$fit,
+       name = paste(last_fit$nom_recette, last_fit$nom_modele, sep))
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
