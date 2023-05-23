@@ -2,37 +2,42 @@ library(tidyverse)
 library(tidymodels)
 library(GGally)
 library(xaringanthemer)
-library(ggridges)
+library(ggrepel)
 library(vip)
 library(gt)
 library(grid)
 library(gridExtra)
 library(cld2)
 library(wordcloud2)
+library(tidytext)
+
+source("./src/functions.R")
 
 PROMU_YELLOW <- "#fddb00"
 PROMU_GREY = "#53565A"
 
-theme_set(theme_bw() +
-            theme(rect = element_rect(fill = "transparent")) +
-            theme(
-              panel.background = element_rect(fill = "transparent",
-                                              colour = NA_character_),
-              plot.background = element_rect(fill = "transparent",
-                                             colour = NA_character_),
-              legend.background = element_rect(fill = "transparent",
-                                               colour = NA_character_),
-              legend.box.background = element_rect(fill = "transparent",
-                                                   colour = NA_character_),
-              legend.key = element_rect(fill = "transparent")
-            ))
-
-
+update_gg_theme(c("./promu_theme.css", "./xaringan-themer.css"))
+#
+# theme_set(theme_bw() +
+#             theme(rect = element_rect(fill = "transparent")) +
+#             theme(
+#               panel.background = element_rect(fill = "transparent",
+#                                               colour = NA_character_),
+#               plot.background = element_rect(fill = "transparent",
+#                                              colour = NA_character_),
+#               legend.background = element_rect(fill = "transparent",
+#                                                colour = NA_character_),
+#               legend.box.background = element_rect(fill = "transparent",
+#                                                    colour = NA_character_),
+#               legend.key = element_rect(fill = "transparent")
+#             ))
+#
+#
 
 # Data ----
-model_data <- read_rds("./data/model_data.rds")
-data_model_pres <- read_rds("./data/model_data_mini.rds")
-model_fits <- read_rds("./data/all_fits.rds")
+model_data <- read_rds("./data/data/model_data.rds")
+data_model_pres <- read_rds("./data/data/model_data_mini.rds")
+model_fits <- read_rds("./data/data/all_fits.rds")
 
 
 # Présentation du jeu de données ----
@@ -62,37 +67,13 @@ tbl_raw_data <- data_model_pres %>%
   fmt_integer(sep_mark = " ") %>%
   tab_style(
     style = list(
-      cell_fill(color = "#AAAAAA", alpha = 0)
+      cell_fill(color = "#FFFFFF00", alpha = 0.9)
     ),
-    locations = cells_body()
+    locations = list(cells_body(), cells_column_labels(), cells_column_spanners())
   )
 
 
-write_rds(tbl_raw_data, "./src/assets/tbl_raw_data.rds")
-
-
-
-# Analyse exploratoire des données ----
-#
-# parking_top <- model_data %>% count(parking_total) %>% filter(n > 100) %>% pull(parking_total)
-# fireplace_top <- model_data %>% count(fireplace_stove) %>% filter(n > 100) %>% pull(fireplace_stove)
-#
-# model_data_expl <- model_data %>%
-#   select(price, region, building_style, year_built, lot_area, n_rooms, n_bathrooms,
-#          parking_total, fireplace_stove, pool) %>%
-#   mutate(year_built = as.integer(year_built),
-#          lot_area = parse_number(lot_area),
-#          parking_total = ifelse(parking_total %in% parking_top, parking_total, "Other"),
-#          fireplace_stove = ifelse(fireplace_stove %in% fireplace_top, fireplace_stove, "Other")
-#   )
-#
-#
-# ggpairs(model_data_expl %>%
-#           select(price, region, lot_area, n_rooms, n_bathrooms))
-#
-#
-#
-
+write_rds(tbl_raw_data, "./data/assets/tbl_raw_data.rds")
 
 
 
@@ -113,7 +94,7 @@ plot_price_density <- model_data %>%
   ) +
   theme(legend.position = "top")
 
-ggsave("./src/assets/plot_price_density.png", plot_price_density, width = 1920, height = 1080, units = "px", bg = "transparent")
+ggsave("./data/assets/plot_price_density.png", plot_price_density, width = 1920, height = 1080, units = "px", bg = "transparent")
 
 plot_price_density
 
@@ -129,7 +110,7 @@ plot_price_region_boxplot <- model_data %>%
   coord_flip() +
   theme(legend.position = "none")
 
-ggsave("./src/assets/plot_price_region_boxplot.png", plot_price_region_boxplot, width = 1920, height = 1080, units = "px", bg = "transparent")
+ggsave("./data/assets/plot_price_region_boxplot.png", plot_price_region_boxplot, width = 1920, height = 1080, units = "px", bg = "transparent")
 
 plot_price_region_boxplot
 
@@ -140,7 +121,7 @@ plot_vip_model1 <- model_fits$last_fit[[2]] %>%
   extract_fit_engine() %>%
   vip(aesthetics = list(alpha = 0.75, fill = "midnightblue", color = "black"))
 
-ggsave("./src/assets/plot_vip_model1.png", plot_vip_model1, width = 1920, height = 1080, units = "px", bg = "transparent")
+ggsave("./data/assets/plot_vip_model1.png", plot_vip_model1, width = 1920, height = 1080, units = "px", bg = "transparent")
 
 
 
@@ -162,7 +143,7 @@ plot_AE_model1 <- model_fits$last_fit[[2]] %>%
     y = "Prix réel"
   )
 
-ggsave("./src/assets/plot_AE_model1.png", plot_AE_model1, width = 1920, height = 1080, units = "px", bg = "transparent")
+ggsave("./data/assets/plot_AE_model1.png", plot_AE_model1, width = 1920, height = 1080, units = "px", bg = "transparent")
 
 
 quantiles_bounds <- quantile_test(model_fits$last_fit[[2]], 25) %>%
@@ -173,63 +154,54 @@ quantiles_bounds <- quantile_test(model_fits$last_fit[[2]], 25) %>%
 plot_demo_lift <- plot_AE_model1 +
   geom_vline(aes(xintercept = lbound), data = quantiles_bounds, linewidth = 0.25)
 
-ggsave("./src/assets/plot_demo_lift.png", plot_demo_lift, width = 1920, height = 1080, units = "px", bg = "transparent")
-
-
-plot_lift_model1 <- lift_chart(model_fits$last_fit[[2]], 25, "")
-
-ggsave("./src/assets/plot_lift_model1.png", plot_lift_model1 + theme(legend.position = "top"), width = 1920, height = 1080, units = "px", bg = "transparent")
+ggsave("./data/assets/plot_demo_lift.png", plot_demo_lift, width = 1920, height = 1080, units = "px", bg = "transparent")
 
 
 
-model_fits$last_fit[[2]] %>%
-  collect_predictions() %>%
-  mutate(
-    error = price - .pred,
-    error_oct = price / .pred - 1
-  ) %>%
-  ggplot(aes(y = error, x = 1)) +
-  geom_violin(fill = PROMU_YELLOW, alpha = 0.5, color = PROMU_GREY) +
-  scale_y_continuous(labels = label_comma())
+plot_lift_model1 <- lift_chart(model_fits$last_fit[[2]], 25)
+
+ggsave("./data/assets/plot_lift_model1.png", plot_lift_model1 + theme(legend.position = "top"), width = 1920, height = 1080, units = "px", bg = "transparent")
 
 
 
-lift_error(model_fits$last_fit[[2]], 15)
+plot_lift_error_model1 <- lift_error(model_fits$last_fit[[2]], 15) +
+  coord_cartesian(ylim = c(-225000, 50000)) +
+  scale_y_continuous(breaks = seq(-225000, 50000, by = 25000),
+                     labels = label_comma(big.mark = " "))
+
+ggsave("./data/assets/plot_lift_error_model1.png", plot_lift_error_model1, width = 1920, height = 1080, units = "px", bg = "transparent")
 
 
-
-
-
-model_fits$last_fit[[2]] %>%
-  lift_density(15) +
-  geom_vline(aes(xintercept = -50000), linetype = 2) +
-  geom_vline(aes(xintercept = 50000), linetype = 2) +
-  coord_cartesian(xlim = c(-300000, 300000))
-
-model_fits$last_fit[[2]] %>%
-  collect_predictions() %>%
-  yardstick::mae(truth = price, estimate = .pred)
 
 
 
 # Embeddings ----
 
+set.seed(123)
 plot_exemple_embedding <- tribble(
   ~mot, ~x, ~y,
-  "bricoleur", 0.5, 0.5,
-  "potentiel", 0.55, 0.7,
-  "abondance", -0.8, -0.2
+  "bricoleur", 0.35, -0.25,
+  "potentiel", 0.35, -0.10,
+  "démolir", 0.8, -0.8,
+  "magnifique", 0.6, 0.5,
+  "belle", -0.2, 0.2
 ) %>%
-  ggplot(aes(xend = x, yend = y, label = mot)) +
+  ggplot(aes(xend = x, yend = y, label = mot, color = mot)) +
   geom_segment(aes(x = 0, y = 0), arrow = arrow(length = unit(0.25, "cm"))) +
-  geom_label(aes(x = x, y = y), nudge_x = 0.2, nudge_y = -0.05) +
+  geom_segment(aes(x = -1.1, xend = 1.1, y = 0, yend = 0), arrow = arrow(length = unit(0.25, "cm")), size = 0.25) +
+  geom_segment(aes(x = 0, xend = 0, y = -1.1, yend = 1.1), arrow = arrow(length = unit(0.25, "cm")), size = 0.25) +
+  geom_label_repel(aes(x = x, y = y)) +
   coord_cartesian(xlim = c(-1, 1), ylim = c(-1, 1)) +
   labs(
-    x = "",
-    y = ""
-  )
+    x = "Magnitude",
+    y = "Impact"
+  ) +
+  theme(axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.position = "none",
+        panel.border = element_rect(colour = "transparent", fill = NA))
 
-ggsave("./src/assets/plot_exemple_embedding.png", plot_exemple_embedding, width = 2160, height = 2160, units = "px", bg = "transparent")
+ggsave("./data/assets/plot_exemple_embedding.png", plot_exemple_embedding, width = 2160, height = 2160, units = "px", bg = "transparent")
 
 
 
@@ -251,7 +223,13 @@ model_data %>%
     temp1 = "⇒",
     temp2 = "⠀⠀⠀⠀...⠀⠀⠀⠀"
   ) %>%
-  write_rds("./src/tbl_embeddings.rds")
+  tab_style(
+    style = list(
+      cell_fill(color = "#FFFFFF00", alpha = 0.9)
+    ),
+    locations = list(cells_body(), cells_column_labels(), cells_column_spanners())
+  ) %>%
+  write_rds("./data/assets/tbl_embeddings.rds")
 
 # Embed only ----
 
@@ -261,7 +239,7 @@ plot_vip_model_embed <- model_fits$last_fit[[3]] %>%
   extract_fit_engine() %>%
   vip(aesthetics = list(alpha = 0.75, fill = "midnightblue", color = "black"))
 
-ggsave("./src/assets/plot_vip_model_embed.png", plot_vip_model_embed, width = 1920, height = 1080, units = "px", bg = "transparent")
+ggsave("./data/assets/plot_vip_model_embed.png", plot_vip_model_embed, width = 1920, height = 1080, units = "px", bg = "transparent")
 
 
 
@@ -270,11 +248,18 @@ ggsave("./src/assets/plot_vip_model_embed.png", plot_vip_model_embed, width = 19
 
 
 
-plot_lift_model_embed <- lift_chart(model_fits$last_fit[[3]], 25, "")
+plot_lift_model_embed <- lift_chart(model_fits$last_fit[[3]], 25)
 
-ggsave("./src/assets/plot_lift_model_embed.png", plot_lift_model_embed + theme(legend.position = "top"), width = 1920, height = 1080, units = "px", bg = "transparent")
+ggsave("./data/assets/plot_lift_model_embed.png", plot_lift_model_embed + theme(legend.position = "top"), width = 1920, height = 1080, units = "px", bg = "transparent")
 
-## Wordclouds ----
+
+
+plot_dbl_lift_model_embed <- dbl_lift_chart(model_fits$last_fit[[2]], model_fits$last_fit[[3]], "sans description", "description uniquement", 25)
+
+ggsave("./data/assets/plot_dbl_lift_model_embed.png", plot_dbl_lift_model_embed + theme(legend.position = "top"), width = 1920, height = 1080, units = "px", bg = "transparent")
+
+
+## Analyse ----
 
 processed_description <- model_data %>%
   select(id, description) %>%
@@ -324,35 +309,51 @@ tfidf_res_fr <- predictions_embed_only %>%
 
 
 
-palette <- c(
-  sapply(seq(0, 1, by = 0.1), darken_color, color_hex = PROMU_YELLOW),
-  sapply(seq(0, 0.5, by = 0.1), lighten_color, color_hex = PROMU_GREY)
-) %>% rep(100)
-
-set.seed(123)
-tfidf_res_q0 <- tfidf_res %>% filter(quantile == 0)
-wordcloud(words = tfidf_res_q0$tokens,
-          freq = tfidf_res_q0$tf_idf,
-          min.freq = 0,
-          max.words = 2000,
-          random.order = FALSE,
-          rot.per = 0.35,
-          colors = brewer.pal(8, "Dark2"))
 
 tfidf_res %>%
   filter(quantile == 0) %>%
-  select(word = tokens, freq = tf_idf) %>%
-  wordcloud2(shape = "pentagon",
-             shuffle = F,
-             color = "random-light", backgroundColor = "grey")
+  arrange(desc(tf_idf)) %>%
+  select(tokens, tf_idf) %>%
+  head(10) %>%
+  gt() %>%
+  tab_header("Plus fréquent dans le premier quintile") %>%
+  cols_label(
+    tokens = "Mot",
+    tf_idf = "TF-IDF"
+  ) %>%
+  fmt_percent(tf_idf) %>%
+  tab_style(
+    style = list(
+      cell_fill(color = "#FFFFFF00", alpha = 0.9)
+    ),
+    locations = list(cells_body(), cells_column_labels(), cells_column_spanners(), cells_title())
+  ) %>%
+  write_rds("./data/assets/tbl_top_words_low.rds")
+
 
 
 tfidf_res %>%
   filter(quantile == 4) %>%
-  select(word = tokens, freq = tf_idf) %>%
-  wordcloud2(shape = "pentagon",
-             shuffle = F,
-             color = "random-light", backgroundColor = "grey")
+  arrange(desc(tf_idf)) %>%
+  select(tokens, tf_idf) %>%
+  head(10) %>%
+  gt() %>%
+  tab_header("Plus fréquent dans le dernier quintile") %>%
+  cols_label(
+    tokens = "Mot",
+    tf_idf = "TF-IDF"
+  ) %>%
+  fmt_percent(tf_idf) %>%
+  tab_style(
+    style = list(
+      cell_fill(color = "#FFFFFF00", alpha = 0.9)
+    ),
+    locations = list(cells_body(), cells_column_labels(), cells_column_spanners(), cells_title())
+  ) %>%
+  write_rds("./data/assets/tbl_top_words_high.rds")
+
+
+
 
 
 
@@ -396,39 +397,87 @@ plot_lift_by_lang <- bind_cols(
   ) +
   theme(legend.position = "top")
 
-ggsave("./src/assets/plot_lift_by_lang.png", plot_lift_by_lang + theme(legend.position = "top"), width = 1920, height = 1080, units = "px", bg = "transparent")
+ggsave("./data/assets/plot_lift_by_lang.png", plot_lift_by_lang + theme(legend.position = "top"), width = 1920, height = 1080, units = "px", bg = "transparent")
 
 
 # Modèle final ----
 
 
-model_fits$last_fit[[5]] %>%
+
+
+
+
+
+## VIP ----
+plot_vip_model3 <- model_fits$last_fit[[5]] %>%
   extract_fit_engine() %>%
   vip(aesthetics = list(alpha = 0.75, fill = "midnightblue", color = "black"))
 
-performance_stats(model_fits$last_fit[[5]], 25, "")
-dbl_lift_chart(model_fits$last_fit[[2]], model_fits$last_fit[[5]], "sans description", "avec description", 25, "")
-
-lift_density(model_fits$last_fit[[5]], 25) +
-  geom_vline(aes(xintercept = -50000), linetype = 2) +
-  geom_vline(aes(xintercept = 50000), linetype = 2) +
-  coord_cartesian(xlim = c(-300000, 300000))
-
-model_fits$last_fit[[5]] %>%
-  lift_density(15) +
-  geom_vline(aes(xintercept = -50000), linetype = 2) +
-  geom_vline(aes(xintercept = 50000), linetype = 2)
-
-model_fits$last_fit[[5]] %>%
-  collect_predictions() %>%
-  yardstick::mae(truth = price, estimate = .pred)
+ggsave("./data/assets/plot_vip_model3.png", plot_vip_model3, width = 1920, height = 1080, units = "px", bg = "transparent")
 
 
 
 
+## Performance ----
+
+
+plot_lift_model3 <- lift_chart(model_fits$last_fit[[5]], 25)
+
+ggsave("./data/assets/plot_lift_model3.png", plot_lift_model3 + theme(legend.position = "top"), width = 1920, height = 1080, units = "px", bg = "transparent")
 
 
 
+
+plot_dbl_lift_model_final <- dbl_lift_chart(model_fits$last_fit[[2]], model_fits$last_fit[[5]], "sans description", "avec description", 25)
+
+ggsave("./data/assets/plot_dbl_lift_model_final.png", plot_dbl_lift_model_final + theme(legend.position = "top"), width = 1920, height = 1080, units = "px", bg = "transparent")
+
+dbl_lift_quantiles(model_fits$last_fit[[2]], model_fits$last_fit[[5]], 25) %>%
+  mutate(
+    diff = pred1 / pred2 - 1
+  ) %>%
+  left_join(model_data %>% mutate(.row =  row_number()) %>% select(.row, description)) %>%
+  mutate(
+    description = str_remove_all(description, "Description\n\r\n\r\n\r ")
+  ) %>%
+  filter(!grepl("^Centris", description)) %>%
+  mutate(
+    description = str_remove_all(description, regex("centris no. [0-9]*", ignore_case = T))
+  ) %>%
+  arrange(desc(diff)) %>%
+  select(description, pred1, pred2, price) %>%
+  filter(price < 800000) %>%
+  slice(8, 14, 20, 26, 27) %>%
+  mutate(
+    description = description %>%
+      str_replace_all('Zone inondable 0-20 ans', '<a style="color:red">Zone inondable 0-20 ans</a>') %>%
+      str_replace_all(regex('Compagne|Campagne', ignore_case = T), '<a style="color:red">campagne</a>') %>%
+      str_replace_all(regex('Village', ignore_case = T), '<a style="color:red">village</a>') %>%
+      str_replace_all(regex("quelques rénovations ont été effectuées, d'autres restent à faire et à finaliser", ignore_case = T), '<a style="color:red">quelques rénovations ont été effectuées, d\'autres restent à faire et à finaliser</a>') %>%
+      str_replace_all(regex('sans garantie légale de qualité', ignore_case = T), '<a style="color:red">sans garantie légale de qualité</a>') %>%
+      str_replace_all(regex('potentiel de rénovation', ignore_case = T), '<a style="color:red">potentiel de rénovation</a>') %>%
+      str_replace_all(regex('sous-sol partiellement aménagé', ignore_case = T), '<a style="color:red">sous-sol partiellement aménagé</a>') %>%
+      str_replace_all(regex('besoin de plusieurs travaux', ignore_case = T), '<a style="color:red">besoin de plusieurs travaux</a>') %>%
+      str_replace_all(regex('pas eu de chauffage intérieur depuis plus de 1 an', ignore_case = T), '<a style="color:red">pas eu de chauffage intérieur depuis plus de 1 an</a>')
+  ) %>%
+  gt() %>%
+  fmt_markdown(description) %>%
+  fmt_number(c(pred1, pred2, price), sep_mark = "&nbsp;", decimals = 0) %>%
+  cols_label(
+    description = "Description",
+    pred1 = "sans description",
+    pred2 = "avec description",
+    price = "Réel"
+  ) %>%
+  tab_spanner(label = "Prédiction", columns = 2:3) %>%
+  tab_style(
+    style = list(
+      cell_fill(color = "#FFFFFF00", alpha = 0.9)
+    ),
+    locations = list(cells_body(), cells_column_labels(), cells_column_spanners())
+  ) %>%
+  cols_align("center", c(pred1, pred2, price)) %>%
+  write_rds("./data/assets/tbl_avec_vs_sans_description.rds")
 
 
 

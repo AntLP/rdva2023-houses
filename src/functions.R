@@ -1,5 +1,108 @@
 library(httr)
 library(tidyverse)
+library(gt)
+
+
+update_gg_theme <- function(css_files){
+
+  ff <- tempfile(fileext = ".css")
+
+  lapply(css_files, readLines) %>%
+    unlist() %>%
+    writeLines(ff)
+
+  theme_set(
+    theme(
+      text = element_text(
+        color = theme_xaringan_get_value("text_color", css_file = ff)
+      ),
+      title = element_text(
+        family = gsub("'", '', theme_xaringan_get_value("header_font_family", css_file = ff)),
+        color = theme_xaringan_get_value("header_color", css_file = ff)
+      ),
+      line = element_line(
+        color = lighten_color(theme_xaringan_get_value("background_color", css_file = ff), 0.1)
+      ),
+      plot.background = element_rect(
+        color = theme_xaringan_get_value("background_color", css_file = ff),
+        fill = theme_xaringan_get_value("background_color", css_file = ff)
+      ),
+      plot.margin = margin(10, 10, 10, 10),
+      plot.title = element_text(
+        size = rel(1.5),
+        hjust = 0.5,
+        margin = margin(0, 0, 20, 0)
+      ),
+      strip.text = element_text(
+        family = gsub("'", '', theme_xaringan_get_value("header_font_family", css_file = ff)),
+        color = theme_xaringan_get_value("header_color", css_file = ff)
+      ),
+      axis.text = element_text(
+        size = rel(1)
+      ),
+      axis.title = element_text(
+        size = rel(1.5)
+      ),
+      legend.text = element_text(
+        size = rel(1)
+      ),
+      panel.grid = NULL,
+      panel.grid.major = element_line(colour = lighten_color(PROMU_GREY, 0.2)),
+      axis.line = element_line(colour = lighten_color(PROMU_GREY, 0.2))
+    ) +
+      # theme(rect = element_rect(fill = element_line(colour = lighten_color(PROMU_GREY, 0.2)))) +
+      theme(
+        panel.background = element_rect(fill = "transparent",
+                                        colour = NA_character_),
+        plot.background = element_rect(fill = "transparent",
+                                       colour = NA_character_),
+        legend.background = element_rect(fill = "transparent",
+                                         colour = NA_character_),
+        legend.box.background = element_rect(fill = "transparent",
+                                             colour = NA_character_),
+        legend.key = element_rect(fill = "transparent",
+                                  colour = NA_character_),
+        strip.background = element_rect(fill="transparent"),
+        panel.border = element_rect(colour = lighten_color(PROMU_GREY, 0.2), fill = NA)
+      )
+  )
+
+  update_geom_defaults("text", list(
+    family = theme_get()$text$family
+  ))
+  update_geom_defaults("label", list(
+    family = theme_get()$text$family
+  ))
+  # update_geom_defaults("col", list(
+  #   fill = theme_xaringan_get_value("text_bold_color", css_file = ff)
+  # ))
+  # update_geom_defaults("point", list(
+  #   color = PROMU_YELLOW,
+  #   fill = PROMU_YELLOW,
+  #   shape = 21,
+  #   size = 2
+  # ))
+  # update_geom_defaults("line", list(
+  #   color = theme_xaringan_get_value("text_color", css_file = ff)
+  # ))
+
+  return(NULL)
+}
+
+
+add_gt_tab_options <- function(gt_table){
+  gt_table %>%
+    tab_options(
+      table.background.color = "#FFFFFF00",
+      # column_labels.font.size = px(10),
+      column_labels.font.weight = "bold",
+      heading.title.font.weight = "bold",
+      # table.font.color = "#EEEEEE",
+      table.font.size = px(14L),
+      row.striping.background_color = "#FFFFFF00"
+    )
+}
+
 
 quantile_test <- function(tuned_model, n_buckets){
 
@@ -12,9 +115,9 @@ quantile_test <- function(tuned_model, n_buckets){
 
 
 
-lift_chart <- function(tuned_model, n_buckets, subtitle = ""){
+lift_chart <- function(tuned_model, n_buckets, fixed = T){
 
-  quantile_test(tuned_model, n_buckets) %>%
+  p <- quantile_test(tuned_model, n_buckets) %>%
     group_by(quantile) %>%
     summarise(
       `prédiction` = mean(.pred),
@@ -27,11 +130,17 @@ lift_chart <- function(tuned_model, n_buckets, subtitle = ""){
     scale_y_continuous(labels = scales::label_comma()) +
     labs(
       y = "Prédiction",
-      color = "",
-      title = "",
-      subtitle = subtitle
+      color = ""
     ) +
     theme(legend.position = "top")
+
+  if(fixed){
+    p <- p +
+      coord_cartesian(ylim = c(0, 3e6)) +
+      scale_y_continuous(labels = scales::label_comma(big.mark = " "), breaks = seq(0, 3e6, by = 500000))
+  }
+
+  p
 
 }
 
@@ -46,8 +155,8 @@ lift_error <- function(tuned_model, n_buckets, type = "abs"){
     summarise(
       prediction = mean(.pred),
       actual = mean(price),
-      error = prediction - actual,
-      error_pct = (prediction - actual) / actual
+      error = actual - prediction,
+      error_pct = (actual - prediction) / actual
     ) %>%
     ggplot(aes(
       x = quantile,
@@ -58,7 +167,7 @@ lift_error <- function(tuned_model, n_buckets, type = "abs"){
     scale_y_continuous(labels = scales::label_comma()) +
     scale_fill_manual(values = c("Négatif" = "#DC2A03", "Positif" = "#46D826")) +
     labs(
-      y = "Erreur (Prédiction - Réel)",
+      y = "Erreur",
       fill = ""
     ) +
     theme(legend.position = "none")
@@ -93,7 +202,7 @@ lift_density <- function(tuned_model, n_buckets, type = "abs"){
 
 
 
-dbl_lift_chart <- function(tuned_model1, tuned_model2, model1_name = "Mod 1", model2_name = "Mod 2", n_buckets, subtitle = ""){
+dbl_lift_chart <- function(tuned_model1, tuned_model2, model1_name = "Mod 1", model2_name = "Mod 2", n_buckets){
 
   bind_cols(  tuned_model1 %>%
                 collect_predictions() %>%
@@ -115,18 +224,27 @@ dbl_lift_chart <- function(tuned_model1, tuned_model2, model1_name = "Mod 1", mo
     geom_line() +
     geom_point(alpha = 0.75) +
     scale_y_continuous(labels = scales::label_comma()) +
-    scale_color_discrete(labels = c("Réel", paste0("Prédiction ", model1_name), paste0("Prédiction ", model2_name))) +
+    scale_color_discrete(labels = c("Réel", paste0("", model1_name), paste0("", model2_name))) +
     labs(
       y = "Prédiction",
-      color = "",
-      title = "Performance sur données de test",
-      subtitle = subtitle
+      color = ""
     ) +
     theme(legend.position = "top")
 
 }
 
+dbl_lift_quantiles <- function(tuned_model1, tuned_model2, n_buckets){
 
+  bind_cols(  tuned_model1 %>%
+                collect_predictions() %>%
+                rename(pred1 = .pred),
+              tuned_model2 %>%
+                collect_predictions() %>%
+                select(.pred) %>%
+                rename(pred2 = .pred)) %>%
+    arrange(pred1 / pred2) %>%
+    mutate(quantile = 1:n() %/% (n() / n_buckets + 1))
+}
 
 
 
@@ -218,5 +336,6 @@ get_openai_embedding <- function(text){
   }
 
 }
+
 
 
