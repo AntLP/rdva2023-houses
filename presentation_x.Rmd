@@ -216,19 +216,47 @@ tribble(
   gt() %>% 
   cols_align(align = "center",
              columns = indicateur) %>% 
+  cols_label(
+    description = "Description",
+    indicateur = "ind_rénov"
+  ) %>% 
   tab_style(
     style = list(
       cell_fill(color = "#FFFFFF00", alpha = 0.9)
     ),
     locations = list(cells_body(), cells_column_labels(), cells_column_spanners())
-  )
+  ) %>% 
+  add_gt_tab_options()
 ```
 
 --
 
 * Difficile de traiter les synonymes, mots rares et/ou erreurs de frappe
 
+```{r}
+tribble(
+  ~description, ~indicateur,
+  "Complètement rénovée en 2022", "oui",
+  "Complètement restaurée en 2022", "non"
+) %>%   
+  gt() %>% 
+  cols_label(
+    description = "Description",
+    indicateur = "ind_rénov"
+  ) %>% 
+  cols_align(align = "center",
+             columns = indicateur) %>% 
+  tab_style(
+    style = list(
+      cell_fill(color = "#FFFFFF00", alpha = 0.9)
+    ),
+    locations = list(cells_body(), cells_column_labels(), cells_column_spanners())
+  ) %>% 
+  add_gt_tab_options()
+```
+
 --
+
 * Laborieux d'identifier les mots clé
 
 
@@ -274,27 +302,8 @@ knitr::include_graphics("./data/assets/plot_exemple_embedding.png")
 
 ]
 
-???
-
-En réalité, les dimension crées par ces modèles ne sont pas interprétable
-
 ---
 
-
-## Vectorisation de mots
-
-2 options:
-
-1. Modèle entraîné spécifiquement pour la tâche voulue
-2. Utilisé un modèle général 
-
-???
-
-Le modèle d'openAI est fait pour mesurer la relation entre les mots dans le texte courant
-
-Les mots sont transformés en vecteur de 1536 dimensions
-
----
 
 ## Vectorisation de mots
 
@@ -315,14 +324,6 @@ Ces modèles nécessitent extrêmement beaucoup de données pour les entraîner,
 ---
 
 
-## Vectorisation de mots
-
-```{r}
-read_rds("./data/assets/tbl_embeddings_pc.rds") %>% 
-  add_gt_tab_options()
-```
-
----
 
 
 class: center middle
@@ -331,6 +332,16 @@ class: center middle
 
 ---
 
+
+
+## Vectorisation de mots
+
+```{r}
+read_rds("./data/assets/tbl_embeddings_pc.rds") %>% 
+  add_gt_tab_options()
+```
+
+---
 
 ## Deuxième modèle - Performance
 
@@ -442,6 +453,45 @@ read_rds("./data/assets/tbl_avec_vs_sans_description.rds")
 ```
 
 ---
+
+
+
+## Modèle final - Analyse
+
+
+```{r}
+read_rds("./data/assets/tbl_test_descriptions1.rds") %>% 
+  add_gt_tab_options()
+```
+
+
+---
+
+## Modèle final - Analyse
+
+
+```{r}
+read_rds("./data/assets/tbl_test_descriptions2.rds") %>% 
+  add_gt_tab_options()
+```
+
+
+---
+
+## Modèle final - Analyse
+
+
+```{r}
+read_rds("./data/assets/tbl_test_descriptions3.rds") %>% 
+  add_gt_tab_options()
+```
+
+
+
+
+
+
+
 
 
 

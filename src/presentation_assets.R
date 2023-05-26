@@ -1,3 +1,4 @@
+library(jsonlite)
 library(tidyverse)
 library(tidymodels)
 library(GGally)
@@ -240,7 +241,8 @@ model_data %>%
 model_data %>%
   slice(1:7) %>%
   bake(extract_recipe(model_fits$fit[[3]]), new_data = .) %>%
-  bind_cols(model_data %>% slice(1:7) %>% select(contains("embedding"))) %>%
+  select(-description) %>%
+  bind_cols(model_data %>% slice(1:7) %>% select(description, contains("embedding"))) %>%
   mutate(description = description %>%
            str_remove("Description\n\r\n\r\n\r ") %>%
            str_extract("^(?:[\\w-]+[^\\w-]+){2}[\\w-]+") %>%
@@ -522,9 +524,84 @@ dbl_lift_quantiles(model_fits$last_fit[[2]], model_fits$last_fit[[5]], 25) %>%
 
 
 
+test_embeddings <- read_json("./data/data/test_descriptions_embeddings.json", )
+
+
+test_data <- model_data %>%
+  slice(6) %>%
+  select(-description, -contains("embedding")) %>%
+  bind_cols(
+    tibble(
+      description = sapply(test_embeddings, function(x) x$description[1]),
+      embedding = lapply(test_embeddings, function(x) unlist(x$embedding))) %>%
+      unnest(embedding) %>%
+      group_by(description) %>%
+      dplyr::mutate(i = stringr::str_pad(dplyr::row_number(), 4, "left", "0")) %>%
+      ungroup() %>%
+      pivot_wider(id_cols = description, names_from = i, values_from = embedding, names_prefix = "embedding_")
+  )
+
+test_predictions <- bind_cols(
+  test_data %>% select(description),
+  predict(model_fits$fit[[5]], new_data = test_data)
+)
 
 
 
+
+test_predictions %>%
+  slice(1:3) %>%
+  gt() %>%
+  fmt_number(.pred, decimals = 0, sep_mark = " ") %>%
+  cols_label(
+    description = "Description",
+    .pred = "Prédiction"
+  ) %>%
+  tab_style(
+    style = list(
+      cell_fill(color = "#FFFFFF00", alpha = 0.9)
+    ),
+    locations = list(cells_body(), cells_column_labels(), cells_column_spanners(), cells_title())
+  ) %>%
+  write_rds("./data/assets/tbl_test_descriptions1.rds")
+
+
+
+test_predictions %>%
+  slice(4:5) %>%
+  gt() %>%
+  fmt_number(.pred, decimals = 0, sep_mark = " ") %>%
+  cols_label(
+    description = "Description",
+    .pred = "Prédiction"
+  ) %>%
+  tab_style(
+    style = list(
+      cell_fill(color = "#FFFFFF00", alpha = 0.9)
+    ),
+    locations = list(cells_body(), cells_column_labels(), cells_column_spanners(), cells_title())
+  ) %>%
+  write_rds("./data/assets/tbl_test_descriptions2.rds")
+
+
+
+
+
+test_predictions %>%
+  slice(6:7) %>%
+  gt() %>%
+  fmt_number(.pred, decimals = 0, sep_mark = " ") %>%
+  cols_label(
+    description = "Description",
+    .pred = "Prédiction"
+  ) %>%
+  tab_style(
+    style = list(
+      cell_fill(color = "#FFFFFF00", alpha = 0.9)
+    ),
+    locations = list(cells_body(), cells_column_labels(), cells_column_spanners(), cells_title())
+  ) %>%
+  write_rds("./data/assets/tbl_test_descriptions3.rds")
 
 
 
