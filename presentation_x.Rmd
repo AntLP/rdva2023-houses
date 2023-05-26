@@ -1,12 +1,11 @@
 ---
-title: "PCA"
+title: "Work in progress"
 subtitle: "Rendez-vous Analytique 2023"
 author: "Antoine Lachance-Perreault"
 date: "2023-06-01"
 output:
   xaringan::moon_reader:
     lib_dir: libs
-    # css: ["xaringan-themer.css"]
     css: ["xaringan-themer.css", "promu_theme.css"]
     nature:
       highlightStyle: github
@@ -18,6 +17,15 @@ output:
     #self_contained: TRUE
     #chakra: "./remark-latest.min.js"
 ---
+
+<style>
+#centered-figure {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 50vh; /* Adjust the height to your preference */
+}
+</style>
 
 
 ```{r setup, include=FALSE}
@@ -46,7 +54,6 @@ PROMU_GREY = "#53565A"
 
 options(htmltools.dir.version = FALSE)
 knitr::opts_chunk$set(
-  fig.path = "media/",
   fig.width = 15,
   fig.height = 100/15,
   fig.retina = 3,
@@ -63,7 +70,7 @@ knitr::opts_chunk$set(
 style_duo(
   primary_color = PROMU_GREY,
   secondary_color = PROMU_YELLOW,
-  title_slide_background_image = "media/logo.svg",
+  title_slide_background_image = "data/assets/logo.svg",
   title_slide_background_size = "320px",
   title_slide_background_position = "10% 90%",
   text_font_google = google_font("Roboto"),
@@ -245,9 +252,27 @@ C'est la technique qui est utilisée par les algorithme d'intelligence artificie
 
 ## Vectorisation de mots
 
+
+.pull-left[
+
+<div id="centered-figure">
+```{r}
+read_rds("./data/assets/tbl_exemple_embedding.rds") %>% 
+  add_gt_tab_options()
+```
+</div>
+
+
+
+]
+
+.pull-right[
+
 ```{r, out.height=500, out.width = 500}
 knitr::include_graphics("./data/assets/plot_exemple_embedding.png")
 ```
+
+]
 
 ???
 
@@ -255,13 +280,6 @@ En réalité, les dimension crées par ces modèles ne sont pas interprétable
 
 ---
 
-## Vectorisation de mots
-
-```{r, out.height=450, out.width = 600}
-knitr::include_graphics("./data/assets/embedding_network.png")
-```
-
----
 
 ## Vectorisation de mots
 
@@ -285,20 +303,31 @@ read_rds("./data/assets/tbl_embeddings.rds") %>%
   add_gt_tab_options()
 ```
 
+???
+
+En réalité un l'output d'un modèle de vectorisation de mots va plus ressembler à ça:
+
+1. Nécessite plusieurs centaines de dimensions pour adéquatement encoder la complexité du langage
+2. Les différentes dimensions ne sont pas du tout interprétables - Crées avec des réseau de neuronnes
+
+Ces modèles nécessitent extrêmement beaucoup de données pour les entraîner, donc ici je me suis penché vers un modèle générique déjà entraîné
+
+---
+
+
+## Vectorisation de mots
+
+```{r}
+read_rds("./data/assets/tbl_embeddings_pc.rds") %>% 
+  add_gt_tab_options()
+```
+
 ---
 
 
 class: center middle
 # Deuxième modèle
 ## Description uniquement
-
----
-
-## Deuxième modèle - Résultats
-
-```{r, out.height=550, out.width = 1000}
-knitr::include_graphics("./data/assets/plot_vip_model_embed.png")
-```
 
 ---
 

@@ -17,22 +17,6 @@ PROMU_YELLOW <- "#fddb00"
 PROMU_GREY = "#53565A"
 
 update_gg_theme(c("./promu_theme.css", "./xaringan-themer.css"))
-#
-# theme_set(theme_bw() +
-#             theme(rect = element_rect(fill = "transparent")) +
-#             theme(
-#               panel.background = element_rect(fill = "transparent",
-#                                               colour = NA_character_),
-#               plot.background = element_rect(fill = "transparent",
-#                                              colour = NA_character_),
-#               legend.background = element_rect(fill = "transparent",
-#                                                colour = NA_character_),
-#               legend.box.background = element_rect(fill = "transparent",
-#                                                    colour = NA_character_),
-#               legend.key = element_rect(fill = "transparent")
-#             ))
-#
-#
 
 # Data ----
 model_data <- read_rds("./data/data/model_data.rds")
@@ -119,7 +103,7 @@ plot_price_region_boxplot
 ## VIP ----
 plot_vip_model1 <- model_fits$last_fit[[2]] %>%
   extract_fit_engine() %>%
-  vip(aesthetics = list(alpha = 0.75, fill = "midnightblue", color = "black"))
+  vip(aesthetics = list(alpha = 0.75, fill = PROMU_YELLOW, color = "black"))
 
 ggsave("./data/assets/plot_vip_model1.png", plot_vip_model1, width = 1920, height = 1080, units = "px", bg = "transparent")
 
@@ -164,8 +148,8 @@ ggsave("./data/assets/plot_lift_model1.png", plot_lift_model1 + theme(legend.pos
 
 
 
-plot_lift_error_model1 <- lift_error(model_fits$last_fit[[2]], 15) +
-  coord_cartesian(ylim = c(-225000, 50000)) +
+plot_lift_error_model1 <- lift_error(model_fits$last_fit[[2]], 25) +
+  coord_cartesian(ylim = c(-300000, 50000)) +
   scale_y_continuous(breaks = seq(-225000, 50000, by = 25000),
                      labels = label_comma(big.mark = " "))
 
@@ -177,20 +161,37 @@ ggsave("./data/assets/plot_lift_error_model1.png", plot_lift_error_model1, width
 
 # Embeddings ----
 
-set.seed(123)
-plot_exemple_embedding <- tribble(
+set.seed(234)
+dat_exemple <- plot_exemple_embedding <- tribble(
   ~mot, ~x, ~y,
   "bricoleur", 0.35, -0.25,
   "potentiel", 0.35, -0.10,
   "démolir", 0.8, -0.8,
   "magnifique", 0.6, 0.5,
   "belle", -0.2, 0.2
-) %>%
+)
+
+dat_exemple %>%
+  gt() %>%
+  cols_label(
+    mot = "Mot",
+    x = "Magnitude",
+    y = "Impact"
+  ) %>%
+  tab_style(
+    style = list(
+      cell_fill(color = "#FFFFFF00", alpha = 0.9)
+    ),
+    locations = list(cells_body(), cells_column_labels(), cells_column_spanners())
+  ) %>%
+  write_rds("./data/assets/tbl_exemple_embedding.rds")
+
+dat_exemple %>%
   ggplot(aes(xend = x, yend = y, label = mot, color = mot)) +
   geom_segment(aes(x = 0, y = 0), arrow = arrow(length = unit(0.25, "cm"))) +
-  geom_segment(aes(x = -1.1, xend = 1.1, y = 0, yend = 0), arrow = arrow(length = unit(0.25, "cm")), size = 0.25) +
-  geom_segment(aes(x = 0, xend = 0, y = -1.1, yend = 1.1), arrow = arrow(length = unit(0.25, "cm")), size = 0.25) +
-  geom_label_repel(aes(x = x, y = y)) +
+  geom_segment(aes(x = -1.1, xend = 1.1, y = 0, yend = 0), arrow = arrow(length = unit(0.25, "cm")), linewidth = 0.25, color = "grey90") +
+  geom_segment(aes(x = 0, xend = 0, y = -1.1, yend = 1.1), arrow = arrow(length = unit(0.25, "cm")), linewidth = 0.25, color = "grey90") +
+  geom_label_repel(aes(x = x, y = y), size = 5, force_pull = 0.1) +
   coord_cartesian(xlim = c(-1, 1), ylim = c(-1, 1)) +
   labs(
     x = "Magnitude",
@@ -199,7 +200,10 @@ plot_exemple_embedding <- tribble(
   theme(axis.text = element_blank(),
         axis.ticks = element_blank(),
         legend.position = "none",
-        panel.border = element_rect(colour = "transparent", fill = NA))
+        panel.border = element_rect(colour = "transparent", fill = NA),
+        axis.line = element_blank(),
+        panel.grid = element_blank(),
+        panel.grid.major = element_blank())
 
 ggsave("./data/assets/plot_exemple_embedding.png", plot_exemple_embedding, width = 2160, height = 2160, units = "px", bg = "transparent")
 
@@ -231,13 +235,45 @@ model_data %>%
   ) %>%
   write_rds("./data/assets/tbl_embeddings.rds")
 
+
+
+model_data %>%
+  slice(1:7) %>%
+  bake(extract_recipe(model_fits$fit[[3]]), new_data = .) %>%
+  bind_cols(model_data %>% slice(1:7) %>% select(contains("embedding"))) %>%
+  mutate(description = description %>%
+           str_remove("Description\n\r\n\r\n\r ") %>%
+           str_extract("^(?:[\\w-]+[^\\w-]+){2}[\\w-]+") %>%
+           paste0("..."),
+         temp1 = "⇒",
+         temp2 = temp1,
+         temp3 = "⠀⠀⠀⠀...⠀⠀⠀⠀",
+         temp4 = temp3) %>%
+  select(description, temp1, embedding_0001, temp3, embedding_1536, temp2, PC01, temp4, PC10) %>%
+  gt() %>%
+  cols_label(
+    description = "Description",
+    temp1 = "⇒",
+    temp3 = "⠀⠀⠀⠀...⠀⠀⠀⠀",
+    temp2 = "⇒",
+    temp4 = "⠀⠀⠀⠀...⠀⠀⠀⠀"
+  ) %>%
+  tab_style(
+    style = list(
+      cell_fill(color = "#FFFFFF00", alpha = 0.9)
+    ),
+    locations = list(cells_body(), cells_column_labels(), cells_column_spanners())
+  ) %>%
+  write_rds("./data/assets/tbl_embeddings_pc.rds")
+
+
 # Embed only ----
 
 
 ## VIP ----
 plot_vip_model_embed <- model_fits$last_fit[[3]] %>%
   extract_fit_engine() %>%
-  vip(aesthetics = list(alpha = 0.75, fill = "midnightblue", color = "black"))
+  vip(aesthetics = list(alpha = 0.75, fill = PROMU_YELLOW, color = "black"))
 
 ggsave("./data/assets/plot_vip_model_embed.png", plot_vip_model_embed, width = 1920, height = 1080, units = "px", bg = "transparent")
 
@@ -411,7 +447,7 @@ ggsave("./data/assets/plot_lift_by_lang.png", plot_lift_by_lang + theme(legend.p
 ## VIP ----
 plot_vip_model3 <- model_fits$last_fit[[5]] %>%
   extract_fit_engine() %>%
-  vip(aesthetics = list(alpha = 0.75, fill = "midnightblue", color = "black"))
+  vip(aesthetics = list(alpha = 0.75, fill = PROMU_YELLOW, color = "black"))
 
 ggsave("./data/assets/plot_vip_model3.png", plot_vip_model3, width = 1920, height = 1080, units = "px", bg = "transparent")
 

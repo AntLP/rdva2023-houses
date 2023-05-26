@@ -222,7 +222,7 @@ dbl_lift_chart <- function(tuned_model1, tuned_model2, model1_name = "Mod 1", mo
     pivot_longer(cols = c(pred1, pred2, actual), names_to = "quantity", values_to = "amount") %>%
     ggplot(aes(x = quantile, y = amount, color = quantity)) +
     geom_line() +
-    geom_point(alpha = 0.75) +
+    geom_point(alpha = 0.75, size = 0.75) +
     scale_y_continuous(labels = scales::label_comma()) +
     scale_color_discrete(labels = c("Réel", paste0("", model1_name), paste0("", model2_name))) +
     labs(
