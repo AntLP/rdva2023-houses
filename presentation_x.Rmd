@@ -1,5 +1,5 @@
 ---
-title: "Work in progress"
+title: "Prédiction des prix immobiliers et le traitement automatique du language naturel"
 subtitle: "Rendez-vous Analytique 2023"
 author: "Antoine Lachance-Perreault"
 date: "2023-06-01"
@@ -164,9 +164,9 @@ Très riche en information, mais comme ce n'est pas structuré, les algorithmes 
 
 
 
-## Indicateur de mot clé
+## Indicateur de mot-clé
 
-Identifier certains mots clés qui ont une influence sur le prix et faire des indicateurs de présence de ceux-ci dans la description.
+Identifier certains mots-clés qui ont une influence sur le prix et faire des indicateurs de présence de ceux-ci dans la description.
 
 
 ```{r}
@@ -203,9 +203,9 @@ tbl_keywords
 
 
 
-## Indicateur de mot clé - Enjeux
+## Indicateur de mot-clé - Enjeux
 
-* Ignore le contexte du mot clé:
+* Ignore le contexte du mot-clé:
 
 ```{r}
 tribble(
@@ -257,7 +257,7 @@ tribble(
 
 --
 
-* Laborieux d'identifier les mots clé
+* Laborieux d'identifier les mots-clés
 
 
 
@@ -269,12 +269,12 @@ tribble(
 
 Idée générale:
 
-* Techniques utilisées pour de représenter un mot sous la forme d'un vecteur à *n* dimension
-* Les mots qui sont similaire pour la tâche donné vont avoir un vecteur similaire
+* Techniques utilisées pour représenter un mot sous la forme d'un vecteur à *n* dimension
+* Les mots qui sont similaires pour la tâche donné vont avoir un vecteur similaire
 
 ???
 
-C'est la technique qui est utilisée par les algorithme d'intelligence artificielle comme chatGPT pour traiter le text entré par les utilisateurs
+C'est la technique qui est utilisée par les algorithme d'intelligence artificielle comme chatGPT pour traiter le texte entré par les utilisateurs
 
 ---
 
@@ -314,12 +314,14 @@ read_rds("./data/assets/tbl_embeddings.rds") %>%
 
 ???
 
-En réalité un l'output d'un modèle de vectorisation de mots va plus ressembler à ça:
+En réalité l'output d'un modèle de vectorisation de mots va plus ressembler à ça:
 
 1. Nécessite plusieurs centaines de dimensions pour adéquatement encoder la complexité du langage
-2. Les différentes dimensions ne sont pas du tout interprétables - Crées avec des réseau de neuronnes
+2. Les différentes dimensions ne sont pas du tout interprétables - Crées avec des réseau de neurones
 
-Ces modèles nécessitent extrêmement beaucoup de données pour les entraîner, donc ici je me suis penché vers un modèle générique déjà entraîné
+Les modèles de vectorisation sont entraînés de façon supervisée, ce qui leur permet de se spécialiser dans une tâche en particulier.
+
+Ils nécessitent par contre extrêmement beaucoup de données pour les entraîner, donc ici je me suis penché vers un déjà entraîné mais plus générique, soit celui d'openAI, la compagnie derrière chatGPT
 
 ---
 
@@ -476,15 +478,15 @@ read_rds("./data/assets/tbl_test_descriptions2.rds") %>%
 ```
 
 
----
+<!-- --- -->
 
-## Modèle final - Analyse
+<!-- ## Modèle final - Analyse -->
 
 
-```{r}
-read_rds("./data/assets/tbl_test_descriptions3.rds") %>% 
-  add_gt_tab_options()
-```
+<!-- ```{r} -->
+<!-- read_rds("./data/assets/tbl_test_descriptions3.rds") %>% -->
+<!--   add_gt_tab_options() -->
+<!-- ``` -->
 
 
 

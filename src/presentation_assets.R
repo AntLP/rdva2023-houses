@@ -550,7 +550,7 @@ test_predictions <- bind_cols(
 
 
 test_predictions %>%
-  slice(1:3) %>%
+  slice(c(1, 3, 2, 4)) %>%
   gt() %>%
   fmt_number(.pred, decimals = 0, sep_mark = " ") %>%
   cols_label(
@@ -568,7 +568,7 @@ test_predictions %>%
 
 
 test_predictions %>%
-  slice(4:5) %>%
+  slice(5:6) %>%
   gt() %>%
   fmt_number(.pred, decimals = 0, sep_mark = " ") %>%
   cols_label(
@@ -588,7 +588,7 @@ test_predictions %>%
 
 
 test_predictions %>%
-  slice(6:7) %>%
+  slice(7:8) %>%
   gt() %>%
   fmt_number(.pred, decimals = 0, sep_mark = " ") %>%
   cols_label(
