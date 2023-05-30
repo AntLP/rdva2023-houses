@@ -1,3 +1,0 @@
-[submodule "data"]
-	path = data
-	url = https://github.com/AntLP/rdva2023-houses-data.git
