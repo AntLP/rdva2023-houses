@@ -1,5 +1,5 @@
 ---
-title: "Prédiction des prix immobiliers et le traitement automatique du language naturel"
+title: "Prédiction des prix immobiliers et le traitement automatique du langage naturel"
 subtitle: "Rendez-vous Analytique 2023"
 author: "Antoine Lachance-Perreault"
 date: "2023-06-01"
@@ -179,7 +179,7 @@ tbl_keywords <- tribble(
 ) %>% 
   gt() %>% 
   cols_label(
-    keyword = "Mon clé",
+    keyword = "Mot-clé",
     dir = "Effet attendu"
   ) %>% 
   gt_fa_column(column = dir,
@@ -270,7 +270,7 @@ tribble(
 Idée générale:
 
 * Techniques utilisées pour représenter un mot sous la forme d'un vecteur à *n* dimension
-* Les mots qui sont similaires pour la tâche donné vont avoir un vecteur similaire
+* Les mots qui sont similaires pour la tâche donnée vont avoir un vecteur similaire
 
 ???
 
