@@ -165,7 +165,7 @@ ggsave("./data/assets/plot_lift_error_model1.png", plot_lift_error_model1, width
 set.seed(234)
 dat_exemple <- plot_exemple_embedding <- tribble(
   ~mot, ~x, ~y,
-  "bricoleur", 0.35, -0.25,
+  "bricoleur", 0.35, -0.17,
   "potentiel", 0.35, -0.10,
   "démolir", 0.8, -0.8,
   "magnifique", 0.6, 0.5,
@@ -187,12 +187,12 @@ dat_exemple %>%
   ) %>%
   write_rds("./data/assets/tbl_exemple_embedding.rds")
 
-dat_exemple %>%
+plot_exemple_embedding <- dat_exemple %>%
   ggplot(aes(xend = x, yend = y, label = mot, color = mot)) +
-  geom_segment(aes(x = 0, y = 0), arrow = arrow(length = unit(0.25, "cm"))) +
   geom_segment(aes(x = -1.1, xend = 1.1, y = 0, yend = 0), arrow = arrow(length = unit(0.25, "cm")), linewidth = 0.25, color = "grey90") +
   geom_segment(aes(x = 0, xend = 0, y = -1.1, yend = 1.1), arrow = arrow(length = unit(0.25, "cm")), linewidth = 0.25, color = "grey90") +
-  geom_label_repel(aes(x = x, y = y), size = 5, force_pull = 0.1) +
+  geom_label_repel(aes(x = x, y = y), size = 9, force_pull = 0.1) +
+  geom_segment(aes(x = 0, y = 0), arrow = arrow(length = unit(0.25, "cm"))) +
   coord_cartesian(xlim = c(-1, 1), ylim = c(-1, 1)) +
   labs(
     x = "Magnitude",
