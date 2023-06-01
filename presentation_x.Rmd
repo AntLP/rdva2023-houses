@@ -478,20 +478,11 @@ read_rds("./data/assets/tbl_test_descriptions2.rds") %>%
 ```
 
 
-<!-- --- -->
+---
 
-<!-- ## Modèle final - Analyse -->
+class: center middle
 
-
-<!-- ```{r} -->
-<!-- read_rds("./data/assets/tbl_test_descriptions3.rds") %>% -->
-<!--   add_gt_tab_options() -->
-<!-- ``` -->
-
-
-
-
-
+# Merci!
 
 
 
